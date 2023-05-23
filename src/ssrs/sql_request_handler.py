@@ -9,7 +9,11 @@ from histrory_reader import ItemsHistoryReport
 from unit_items import ItemsLists
 
 
-def get_params():
+def get_params() -> argparse.ArgumentParser:
+    """
+    setup and parse cli
+    :return: ArgumentParser
+    """
     parser = argparse.ArgumentParser(description="Process some integers.")
     parser.add_argument("-unit_name", type=str, help="unit name", default="unit_30")
     parser.add_argument("-unit_id", type=str, help="unit number", default="1")
@@ -31,6 +35,9 @@ def get_params():
     parser.add_argument("-debug", help="debug is on", action="store_true", default=True)
 
     return parser.parse_args()
+
+
+def init_logger(logging_level):
 
 
 if __name__ == "__main__":
@@ -84,9 +91,7 @@ if __name__ == "__main__":
             run_params.start_date, run_params.end_date
         )
 
-        execution_time_in_ms = (
-            datetime.now() - start_retrieve_timestamp
-        ).total_seconds() * 1000
+        execution_time_in_ms = (datetime.now() - start_retrieve_timestamp).total_seconds() * 1000
         logging.debug(
             "Data received. Execution time = {:.3f} ms".format(execution_time_in_ms)
         )

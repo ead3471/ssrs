@@ -6,4 +6,8 @@
 
 .DS_Store
 
+venv
 
+.idea
+
+/src/ssrs/logs/

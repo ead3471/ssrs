@@ -24,7 +24,7 @@ class ItemsLists:
         , {'NAME': 'PRODUCTION.UNIT<uid>30.<uid>3032PIR0033', 'INT_TYPE': 'a', 'GROUP_ID': '1'}
         , {'NAME': 'PRODUCTION.UNIT<uid>30.<uid>3032AIRA0273A', 'INT_TYPE': 'a', 'GROUP_ID': '2'}
         , {'NAME': 'PRODUCTION.UNIT<uid>30.<uid>3032AIRA0273B', 'INT_TYPE': 'a', 'GROUP_ID': '2'}
-        , {'NAME': 'PRODUCTION.UNIT<uid>30.<uid>3084FIR0513', 'INT_TYPE': 'i', 'GROUP_ID': '1'} # попросили добавить
+        , {'NAME': 'PRODUCTION.UNIT<uid>30.<uid>3084FIR0513', 'INT_TYPE': 'i', 'GROUP_ID': '1'}
     ]
 
     unit_40_items = [
@@ -351,8 +351,16 @@ class ItemsLists:
 
     @staticmethod
     def get_unit_items(unit_name: str, unit_id: str) -> List[Dict]:
+        """
+        used for retrieve report items for required unit
+
+        :param unit_name: name of unit
+        :param unit_id: unit number
+        :return:
+        list of report items for given unit_name and unit_id
+        """
         if unit_name not in ItemsLists.unit_names_map:
-            raise ValueError("Bad unit name(not in accepted list):" + unit_name)
+            raise ValueError(f"Bad unit name(not in accepted list):{unit_name}")
 
         if unit_id == '':
             return ItemsLists.unit_names_map[unit_name]
