@@ -32,7 +32,7 @@ SSRS module used for get data from FAST/TOOLS SCADA system and peresent it in sp
     ```
 8. You can get run script parameters with 
      ```
-        python sql_request_handler.py
+    python sql_request_handler.py
      ```
 
     
