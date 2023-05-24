@@ -3,9 +3,7 @@ import dss
 import json
 import xml.etree.ElementTree as xml
 import logging
-from sys import getdefaultencoding
-import codecs
-
+from typing import Dict
 
 
 class FastToolsAggregationItem:
@@ -15,14 +13,19 @@ class FastToolsAggregationItem:
                      'Q_H_22']
 
     @staticmethod
-    def check_fields_and_set_zero_if_not_present(data: dict):
+    def check_fields_and_set_zero_if_not_present(data: Dict[str, str]):
+        """
+        set values to zero if nothing retrieved
+        :param data:
+        :return:
+        """
         for field in FastToolsAggregationItem.report_fields:
             if field not in data:
                 data[field] = '0'
 
     def __init__(self, item_specification: dict, order_number=1):
         if 'NAME' not in item_specification:
-            raise ValueError('Bad item spec for:' + dict)
+            raise ValueError(f'Bad item spec for:{item_specification}')
         else:
             self.item_name = item_specification['NAME']
             self.integration_type = item_specification['INT_TYPE'] or 'i'
@@ -30,18 +33,26 @@ class FastToolsAggregationItem:
         self.order_number = order_number
 
     def get_item_properties(self, conn) -> dict:
+        """
+        get item properties from ITEM_DF dataset
+        :param conn: dss connection
+        :return:
+        dict with NAME, HIGH_LIMIT*2, LOW_LIMIT*2, ENG_UNIT values
+        """
         item_data = {}
-        item_dataset = dss.openDataset(conn, 'ITEM_DF', ['NAME', 'HIGH_LIMIT', 'LOW_LIMIT','ENG_UNIT'], 'r')
+        item_dataset = dss.openDataset(conn, 'ITEM_DF', ['NAME', 'HIGH_LIMIT', 'LOW_LIMIT', 'ENG_UNIT'], 'r')
         item_properties = dss.readEqual(conn, item_dataset, self.item_name + '.PV')
         item_data['NAME'] = self.item_name
         item_data['GROUP_ID'] = self.group_id
         item_data['ORDER_NUMBER'] = self.order_number
 
-        str2=str(item_properties['ENG_UNIT'].encode('unicode_escape').decode('ascii',errors='ignore')).replace("\\xb","")
+        str2 = str(item_properties['ENG_UNIT'].encode('unicode_escape').decode('ascii', errors='ignore')).replace(
+            "\\xb", "")
         item_data['ENG_UNIT'] = str2
+        # for integrated values - scale limits are multiplied by 2
         if self.integration_type == 'i':
-            item_data['HIGH_LIMIT'] = item_properties['HIGH_LIMIT']*2
-            item_data['LOW_LIMIT'] = item_properties['LOW_LIMIT']*2
+            item_data['HIGH_LIMIT'] = item_properties['HIGH_LIMIT'] * 2
+            item_data['LOW_LIMIT'] = item_properties['LOW_LIMIT'] * 2
         else:
             item_data['HIGH_LIMIT'] = item_properties['HIGH_LIMIT']
             item_data['LOW_LIMIT'] = item_properties['LOW_LIMIT']
@@ -49,7 +60,7 @@ class FastToolsAggregationItem:
         dss.closeDataset(conn, item_dataset)
         return item_data
 
-    def get_2_hour_item_history(self, conn, start, end) -> dict:
+    def get_2_hour_item_history(self, conn, start, end) -> Dict[str, str]:
         history_samples = dss.getItemHistory(conn, self.item_name + '.2_HOUR', 'AGGREGATION', start, end, 24)
         data = {}
         interval_sum = 0
@@ -58,8 +69,8 @@ class FastToolsAggregationItem:
             if not (sample is None):
                 sample_time = dss.dateConvert(conn, sample[0], 'GMT_TO_LCT')
                 # fields like H_0 and Q_H_0:
-                sample_hour = 'H_' + str(dss.dateString(conn, sample_time, 'h'))
-                sample_hour_quality = 'Q_' + sample_hour
+                sample_hour = f'H_{dss.dateString(conn, sample_time, "h")}'
+                sample_hour_quality = f'Q_{sample_hour}'
 
                 current_hour_value = float(str((sample[1])))
                 interval_sum = interval_sum + current_hour_value
@@ -77,9 +88,8 @@ class FastToolsAggregationItem:
             data['SUM'] = interval_sum / samples_count
         return data
 
-
     def get_empty_report(self):
-        item_params={}
+        item_params = {}
         item_params['NAME'] = self.item_name
         item_params['GROUP_ID'] = self.group_id
         item_params['ORDER_NUMBER'] = self.order_number
@@ -87,9 +97,9 @@ class FastToolsAggregationItem:
         item_params['HIGH_LIMIT'] = '0'
         item_params['LOW_LIMIT'] = '0'
 
-        item_params['SUM']=0
-        for hour in (10,12,14,16,18,20,22,0,2,4,6,8):
-            item_params[f'H_{hour}']=0
+        item_params['SUM'] = 0
+        for hour in (10, 12, 14, 16, 18, 20, 22, 0, 2, 4, 6, 8):
+            item_params[f'H_{hour}'] = 0
             item_params[f'Q_{hour}'] = 0
 
         return item_params
@@ -111,9 +121,13 @@ class ItemsHistoryReport:
             self.items.append(FastToolsAggregationItem(item_spec, items_count))
             items_count += 1
 
-
-
     def read_data_from_fast_tools(self, start_date: str, end_date: str):
+        """
+        read data from fasttools
+        :param start_date:
+        :param end_date:
+        :return: None
+        """
         conn = dss.connect()
         start = dss.dateDSS(conn, start_date)
         corrected_start = dss.dateConvert(conn, start, 'LCT_TO_GMT')
@@ -127,7 +141,7 @@ class ItemsHistoryReport:
                 item_report = item.get_2_hour_item_report(conn, corrected_start, corrected_end)
             except Exception as ex:
                 logging.error('Item report read error for ' + item.item_name + ":" + str(ex))
-                item_report=item.get_empty_report()
+                item_report = item.get_empty_report()
             self.report_data.append(item_report)
 
         dss.close(conn)

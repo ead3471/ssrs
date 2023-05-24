@@ -8,6 +8,9 @@ from logging.handlers import TimedRotatingFileHandler
 from histrory_reader import ItemsHistoryReport
 from unit_items import ItemsLists
 
+SCRIPT_LOCATION = os.path.dirname(__file__)
+LOG_FOLDER = os.path.join(SCRIPT_LOCATION, "logs")
+
 
 def get_params() -> argparse.ArgumentParser:
     """
@@ -20,65 +23,64 @@ def get_params() -> argparse.ArgumentParser:
     parser.add_argument(
         "-start_date",
         type=str,
-        help="Start date as %dd-%mm-%yy hh:00:00.000",
+        help="Start date as dd-mm-yy hh:00:00.000",
         default=datetime.now().strftime("%d-%m-%y 10:00:00.000"),
     )
     parser.add_argument(
         "-end_date",
         type=str,
-        help="End date as %dd-%mm-%yy hh:00:00.000",
+        help="End date as dd-mm-yy hh:00:00.000",
         default=(datetime.now() + timedelta(days=1)).strftime("%d-%m-%y 08:00:00.000"),
     )
     parser.add_argument(
-        "-out_type", type=str, choices=["xml", "json", "list"], default="xml"
+        "-out_type", type=str, choices=["xml", "json"], default="xml"
+    )
+    parser.add_argument(
+        "-file", type=str, default="", help="out file name"
     )
     parser.add_argument("-debug", help="debug is on", action="store_true", default=True)
 
-    return parser.parse_args()
+    parser.parse_args()
+    return parser
 
 
-def init_logger(logging_level):
+def init_logger(level=logging.DEBUG):
+    os.makedirs(LOG_FOLDER, exist_ok=True)
+    handler = TimedRotatingFileHandler(
+        filename=str(os.path.join(LOG_FOLDER, 'handler_log')),
+        when="D",
+        interval=1,
+        backupCount=30,
+        encoding="utf-8",
+        delay=False,
+    )
+    formatter = logging.Formatter(
+        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    handler.setFormatter(formatter)
+    handler.suffix = datetime.now().strftime("%Y-%m-%d_%H-%M-%S.log")
+
+    logging.getLogger().addHandler(handler)
+    logging.getLogger().setLevel(level)
 
 
 if __name__ == "__main__":
-
+    sys.path.append(SCRIPT_LOCATION)
     run_params = get_params()
+
+    # if run_params.help:
+    #run_params.print_help()
+    # else:
 
     if run_params.debug:
         logging_level = logging.DEBUG
     else:
         logging_level = logging.ERROR
 
-    location = os.path.dirname(__file__)
-    sys.path.append(location)
-    logging.basicConfig(
-        filename=f"{location}/logs/{datetime.today().strftime('%Y-%m-%d')}.log",
-        level=logging_level,
-        format="%(asctime)s.%(msecs)03d %(levelname)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    # create handler
-    handler = TimedRotatingFileHandler(
-        filename=f"{location}/logs/runtime.log",
-        when="D",
-        interval=1,
-        backupCount=3,
-        encoding="utf-8",
-        delay=False,
-    )
-
-    # create formatter and add to handler
-    formatter = logging.Formatter(
-        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    handler.setFormatter(formatter)
-
-    # add the handler to named logger
-    logging.getLogger("sql_handler").addHandler(handler)
+    init_logger(logging_level)
 
     logging.debug("=======================HANDLE REQUEST=============================")
-    logging.debug("run with params = " + str(run_params))
+    logging.debug(f"run with params {run_params}")
 
     try:
         request_items = ItemsLists.get_unit_items(
@@ -88,7 +90,8 @@ if __name__ == "__main__":
         logging.debug("Start read data")
         start_retrieve_timestamp = datetime.now()
         items_report.read_data_from_fast_tools(
-            run_params.start_date, run_params.end_date
+            run_params.start_date,
+            run_params.end_date
         )
 
         execution_time_in_ms = (datetime.now() - start_retrieve_timestamp).total_seconds() * 1000
@@ -99,11 +102,15 @@ if __name__ == "__main__":
         result = "no_data"
         if run_params.out_type == "xml":
             result = items_report.to_xml_string()
-            print(result)
-        else:
+        elif run_params.out_type == "json":
             result = items_report.to_json_string()
+
+        if run_params.file:
+            with open(run_params.file, "w") as file:
+                file.write(result)
+        else:
             print(result)
-            logging.debug(result)
-    except Exception:
-        logging.exception("exception ", exc_info=1)
-        # logging.error(str(ex)+str(ex.with_traceback(Tr)))
+
+        logging.debug(result)
+    except BaseException as ex:
+        logging.error(f"Processing request error:{ex}")
